@@ -19,7 +19,7 @@ public class UserRegistration extends AbstractVerticle {
         router.post(USER_REGISTRATION_URL)
                 .handler(request ->
                         vertx.eventBus()
-                                .rxSend("user-registration", "user")
+                                .rxSend("user-registration", request.getBodyAsJson())
                                 .map(Message::body)
                                 .subscribe(res -> request.response()
                                         .setStatusCode(201)

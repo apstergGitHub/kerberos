@@ -1,12 +1,13 @@
 package hope.back.server;
 
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
+import io.vertx.rxjava.core.RxHelper;
 import io.vertx.rxjava.core.Vertx;
-import io.vertx.rxjava.core.http.HttpClient;
-import io.vertx.rxjava.core.http.HttpClientRequest;
 import io.vertx.rxjava.ext.unit.Async;
 import io.vertx.rxjava.ext.unit.TestCompletion;
 import io.vertx.rxjava.ext.unit.TestSuite;
+import io.vertx.rxjava.ext.web.client.WebClient;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -26,19 +27,22 @@ public class UserRegistrationTest {
                     .test("userIsRegistered", context -> {
                         final Async async = context.async();
 
-                        final HttpClient client = vertx.createHttpClient();
-                        final HttpClientRequest req = client.post(8090, "localhost", "/user");
+                        final WebClient client = WebClient.create(vertx);
+                        client.post(8090, "localhost", "/user")
+                                .putHeader("Content-Type", "application/json")
+                                .rxSendJsonObject(new JsonObject().put("email", "random@gmail.com").put("username", "testUsername"))
+                                .subscribeOn(RxHelper.scheduler(vertx))
+                                .subscribe(
+                                        resp -> {
+                                            context.assertEquals(201, resp.statusCode());
+                                            async.complete();
+                                        },
+                                        err -> context.fail(err.getMessage())
+                                );
                         vertx.eventBus().consumer("user-registration", msg -> {
-                            context.assertEquals("user", msg.body().toString());
+                            context.assertEquals(new JsonObject().put("email", "random@gmail.com").put("username", "testUsername").encode(), msg.body().toString());
                             msg.reply("any");
                         });
-                        req.exceptionHandler(err -> context.fail(err.getMessage()));
-                        req.handler(resp -> {
-                            context.assertEquals(201, resp.statusCode());
-                            async.complete();
-                        });
-                        req.end();
-
                     })
 //                    .test("bodyDispatchedAsEvent", context -> {
 //                        final Async async = context.async();
