@@ -1,4 +1,4 @@
-package hope.back.server;
+package hope.back.server.property.register;
 
 import hope.back.AbstractTestCase;
 import io.vertx.core.json.JsonObject;
@@ -13,11 +13,26 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-@RunWith(VertxUnitRunner.class)
-public class UserRegistrationTest extends AbstractTestCase {
+import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
+import static org.apache.commons.lang3.RandomStringUtils.randomNumeric;
 
+@RunWith(VertxUnitRunner.class)
+public class PropertyRegistrationTest extends AbstractTestCase {
+
+    private static final String USER_ID = randomAlphanumeric(8);
+    private static final String ADDRESS_ID = randomNumeric(8);
     @Rule
     public RunTestOnContext rule = new RunTestOnContext();
+
+    @Before
+    public void setUp(TestContext context) {
+        super.setUp();
+
+        new Vertx(rule.vertx())
+                .deployVerticle(
+                        PropertyRegistration.class.getName(),
+                        context.asyncAssertSuccess());
+    }
 
     @Test
     public void whenEventResponseIsSuccessfulReturn201(TestContext context) {
@@ -25,11 +40,11 @@ public class UserRegistrationTest extends AbstractTestCase {
         final Vertx vertx = new Vertx(rule.vertx());
         final WebClient client = WebClient.create(vertx);
 
-        vertx.eventBus().consumer("user-registration", msg -> msg.reply("any"));
+        vertx.eventBus().consumer("property-registration", msg -> msg.reply("any"));
 
-        client.post(8090, "localhost", "/user")
+        client.post(8091, "localhost", "/property/register")
                 .putHeader("Content-Type", "application/json")
-                .rxSendJsonObject(new JsonObject().put("email", "random@gmail.com").put("username", "testUsername"))
+                .rxSendJsonObject(new JsonObject().put("userId", "215155").put("username", "testUsername"))
                 .subscribe(resp -> {
                             context.assertEquals(201, resp.statusCode());
                             async.complete();
@@ -43,10 +58,12 @@ public class UserRegistrationTest extends AbstractTestCase {
         final Vertx vertx = new Vertx(rule.vertx());
 
         final WebClient client = WebClient.create(vertx);
-        client.post(8090, "localhost", "/user")
+        client.post(8090, "localhost", "/property/register")
                 .putHeader("Content-Type", "application/json")
-                .rxSendJsonObject(new JsonObject().put("email", "random@gmail.com").put("username", "testUsername"))
+                .rxSendJsonObject(new JsonObject().put("userId", USER_ID).put("addressId", ADDRESS_ID))
                 .subscribe();
+        //http://openmymind.net/Multiple-Collections-Versus-Embedded-Documents/#5
+        //https://stackoverflow.com/questions/5373198/mongodb-relationships-embed-or-reference
 
         vertx.eventBus().<JsonObject>consumer("user-registration", msg -> {
             context.assertEquals(new JsonObject().put("email", "random@gmail.com").put("username", "testUsername"), msg.body());
@@ -54,15 +71,5 @@ public class UserRegistrationTest extends AbstractTestCase {
             async.complete();
         });
 
-    }
-
-    @Before
-    public void setUp(TestContext context) {
-        super.setUp();
-
-        new Vertx(rule.vertx())
-                .deployVerticle(
-                        UserRegistration.class.getName(),
-                        context.asyncAssertSuccess());
     }
 }
