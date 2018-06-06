@@ -1,10 +1,14 @@
 package hope.back;
 
 import hope.back.server.UserRegistration;
+import hope.back.server.web.property.register.PropertyRegistration;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.Log4J2LoggerFactory;
+import io.vertx.core.AsyncResult;
 import io.vertx.rxjava.config.ConfigRetriever;
 import io.vertx.rxjava.core.AbstractVerticle;
+
+import static java.util.Optional.ofNullable;
 
 public class Launcher extends AbstractVerticle {
 
@@ -15,7 +19,16 @@ public class Launcher extends AbstractVerticle {
         configRetriever.rxGetConfig()
                 .subscribe(
                         config -> {
-                            vertx.deployVerticle(UserRegistration.class.getName());
+                            vertx.deployVerticle(UserRegistration.class.getName(), result -> ofNullable(result)
+                                    .filter(AsyncResult::failed)
+                                    .ifPresent(res -> {
+                                        throw new IllegalStateException(res.cause());
+                                    }));
+                            vertx.deployVerticle(PropertyRegistration.class.getName(), result -> ofNullable(result)
+                                    .filter(AsyncResult::failed)
+                                    .ifPresent(res -> {
+                                        throw new IllegalStateException(res.cause());
+                                    }));
                             System.setProperty("vertx.logger-delegate-factory-class-name", config.getString("vertx.logger-delegate-factory-class-name"));
                             InternalLoggerFactory.setDefaultFactory(Log4J2LoggerFactory.INSTANCE);
                         }

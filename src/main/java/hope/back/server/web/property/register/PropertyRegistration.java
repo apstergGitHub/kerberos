@@ -1,11 +1,10 @@
-package hope.back.server.property.register;
+package hope.back.server.web.property.register;
 
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.rxjava.core.AbstractVerticle;
-import io.vertx.rxjava.core.eventbus.Message;
 import io.vertx.rxjava.ext.web.Router;
 import io.vertx.rxjava.ext.web.handler.BodyHandler;
 
@@ -26,11 +25,12 @@ public class PropertyRegistration extends AbstractVerticle {
         router.post(PROPERTY_REGISTRATION_URL)
                 .handler(request ->
                         vertx.eventBus()
-                                .rxSend("property-registration", "request.getBodyAsJson()")
-                                .map(Message::body)
-                                .subscribe(res -> request.response()
-                                        .setStatusCode(201)
-                                        .end()));
+                                .rxSend("property-registration", request.getBodyAsJson())
+                                .subscribe(res ->
+                                                request.response()
+                                                        .setStatusCode(201)
+                                                        .end(),
+                                        res -> request.fail(400)));
 
         vertx.createHttpServer()
                 .requestHandler(router::accept)

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Configuration status="warn" name="MyApp" packages="">
+<Configuration status="trace" name="MyApp" packages="">
     <Appenders>
         <Console name="STDOUT" target="SYSTEM_OUT">
             <PatternLayout pattern="%d{ISO8601} --- %t --- %m%n"/>
         </Console>
     </Appenders>
     <Loggers>
-        <Root level="debug">
+        <Root level="trace">
             <AppenderRef ref="STDOUT"/>
         </Root>
     </Loggers>
