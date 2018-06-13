@@ -38,11 +38,15 @@ public class UserRegistration extends AbstractVerticle {
                 .listen(8090,
                         result -> ofNullable(result)
                                 .filter(AsyncResult::succeeded)
-                                .ifPresentOrElse(
-                                        res -> {
-                                            startFuture.complete();
-                                            logger.info(format("Server started for %s", this.getClass().getName()));
-                                        },
-                                        () -> startFuture.fail("Server failed to start")));
+                                .ifPresent(res -> {
+                                    startFuture.complete();
+                                    logger.info(format("Server started for %s", this.getClass().getName()));
+                                }));
+//                                .ifPresentOrElse(
+//                                        res -> {
+//                                            startFuture.complete();
+//                                            logger.info(format("Server started for %s", this.getClass().getName()));
+//                                        },
+//                                        () -> startFuture.fail("Server failed to start")));
     }
 }

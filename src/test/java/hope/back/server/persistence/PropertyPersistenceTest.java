@@ -1,18 +1,25 @@
 package hope.back.server.persistence;
 
+import de.flapdoodle.embed.mongo.MongodProcess;
+import de.flapdoodle.embed.mongo.MongodStarter;
+import de.flapdoodle.embed.mongo.config.MongodConfigBuilder;
+import de.flapdoodle.embed.mongo.config.Net;
 import hope.back.AbstractTestCase;
+import io.vertx.core.DeploymentOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.RunTestOnContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import io.vertx.rxjava.core.Vertx;
-import io.vertx.rxjava.ext.web.client.WebClient;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import io.vertx.rxjava.ext.mongo.MongoClient;
+import org.junit.*;
 import org.junit.runner.RunWith;
 
+import java.io.IOException;
+
+import static de.flapdoodle.embed.mongo.distribution.Version.Main.PRODUCTION;
+import static de.flapdoodle.embed.process.runtime.Network.localhostIsIPv6;
 import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
 import static org.apache.commons.lang3.RandomStringUtils.randomNumeric;
 
@@ -21,6 +28,8 @@ public class PropertyPersistenceTest extends AbstractTestCase {
 
     private static final String USER_ID = randomAlphanumeric(8);
     private static final String PRICE_PER_NIGHT = randomNumeric(8);
+    private static int MONGO_PORT = 12345;
+    private static MongodProcess MONGO;
 
     @Rule
     public RunTestOnContext rule = new RunTestOnContext();
@@ -32,6 +41,11 @@ public class PropertyPersistenceTest extends AbstractTestCase {
         new Vertx(rule.vertx())
                 .deployVerticle(
                         PropertyPersistence.class.getName(),
+                        new DeploymentOptions(new JsonObject()
+                                .put("http.port", MONGO_PORT)
+                                .put("db_name", "properties-test")
+                                .put("connection_string",
+                                        "mongodb://localhost:" + MONGO_PORT)),
                         context.asyncAssertSuccess());
     }
 
@@ -39,18 +53,37 @@ public class PropertyPersistenceTest extends AbstractTestCase {
     public void whenEventIsReceivedPersistIt(TestContext context) {
         final Async async = context.async();
         final Vertx vertx = new Vertx(rule.vertx());
-        final WebClient client = WebClient.create(vertx);
 
         vertx.eventBus().send("property-registration", new JsonObject().put("userId", USER_ID).put("pricePerNight", PRICE_PER_NIGHT));
         //https://vertx.io/blog/combine-vert-x-and-mongo-to-build-a-giant/
 
-        client.post(8091, "localhost", "/property/register")
-                .putHeader("Content-Type", "application/json")
-                .rxSendJsonObject(new JsonObject().put("userId", "215155").put("username", "testUsername"))
-                .subscribe(resp -> {
-                            context.assertEquals(201, resp.statusCode());
-                            async.complete();
-                        },
-                        error -> context.fail(error.getMessage()));
+        final MongoClient mongoClient = MongoClient.createNonShared(vertx, new JsonObject()
+                .put("http.port", MONGO_PORT)
+                .put("db_name", "properties-test")
+                .put("connection_string",
+                        "mongodb://localhost:" + MONGO_PORT));
+
+        mongoClient.count("properties", new JsonObject(), count -> {
+            if (count.succeeded() && count.result() == 1) {
+                async.complete();
+            } else {
+                context.fail();
+            }
+        });
+    }
+
+    @BeforeClass
+    public static void initialize() throws IOException {
+        MONGO = MongodStarter.getDefaultInstance()
+                .prepare(new MongodConfigBuilder()
+                        .version(PRODUCTION)
+                        .net(new Net(MONGO_PORT, localhostIsIPv6()))
+                        .build())
+                .start();
+    }
+
+    @AfterClass
+    public static void shutdown() {
+        MONGO.stop();
     }
 }
