@@ -28,6 +28,7 @@ public class PropertyPersistenceTest extends AbstractTestCase {
 
     private static final String USER_ID = randomAlphanumeric(8);
     private static final String PRICE_PER_NIGHT = randomNumeric(8);
+    private static final String PROPERTIES_COLLECTION = "properties";
     private static int MONGO_PORT = 12345;
     private static MongodProcess MONGO;
 
@@ -41,11 +42,12 @@ public class PropertyPersistenceTest extends AbstractTestCase {
         new Vertx(rule.vertx())
                 .deployVerticle(
                         PropertyPersistence.class.getName(),
-                        new DeploymentOptions(new JsonObject()
-                                .put("http.port", MONGO_PORT)
-                                .put("db_name", "properties-test")
-                                .put("connection_string",
-                                        "mongodb://localhost:" + MONGO_PORT)),
+                        new DeploymentOptions()
+                                .setConfig(new JsonObject()
+                                        .put("http.port", MONGO_PORT)
+                                        .put("db_name", "properties-test")
+                                        .put("connection_string",
+                                                "mongodb://localhost:" + MONGO_PORT)),
                         context.asyncAssertSuccess());
     }
 
@@ -54,22 +56,29 @@ public class PropertyPersistenceTest extends AbstractTestCase {
         final Async async = context.async();
         final Vertx vertx = new Vertx(rule.vertx());
 
-        vertx.eventBus().send("property-registration", new JsonObject().put("userId", USER_ID).put("pricePerNight", PRICE_PER_NIGHT));
-        //https://vertx.io/blog/combine-vert-x-and-mongo-to-build-a-giant/
-
         final MongoClient mongoClient = MongoClient.createNonShared(vertx, new JsonObject()
                 .put("http.port", MONGO_PORT)
                 .put("db_name", "properties-test")
                 .put("connection_string",
                         "mongodb://localhost:" + MONGO_PORT));
+        //https://vertx.io/blog/    combine-vert-x-and-mongo-to-build-a-giant/
 
-        mongoClient.count("properties", new JsonObject(), count -> {
-            if (count.succeeded() && count.result() == 1) {
-                async.complete();
-            } else {
-                context.fail();
-            }
-        });
+        vertx.eventBus()
+                .send("property-registration", new JsonObject().put("userId", USER_ID).put("pricePerNight", PRICE_PER_NIGHT),
+                        event -> mongoClient.count(PROPERTIES_COLLECTION, new JsonObject(), count -> {
+                            if (count.succeeded() && count.result() == 1) {
+                                mongoClient.find(PROPERTIES_COLLECTION, new JsonObject().put("userId", USER_ID), res -> {
+                                    if (res.succeeded()) {
+                                        context.assertEquals(res.result().get(0).getString("pricePerNight"), PRICE_PER_NIGHT);
+                                    } else {
+                                        context.fail();
+                                    }
+                                });
+                                async.complete();
+                            } else {
+                                context.fail();
+                            }
+                        }));
     }
 
     @BeforeClass
