@@ -12,8 +12,6 @@ public class PropertyPersistence extends AbstractVerticle {
     @Override
     public void start() {
         final MongoClient mongoClient = MongoClient.createNonShared(vertx, config());
-        mongoClient.createCollection("properties", event -> {
-        });
 
         vertx.eventBus()
                 .<JsonObject>consumer("property-registration")
@@ -22,9 +20,11 @@ public class PropertyPersistence extends AbstractVerticle {
                         mongoClient.insert("properties", msg.body(),
                                 res -> {
                                     if (res.succeeded()) {
-                                        msg.reply("Persisted: " + msg.body());
+                                        final String message = "Persisted: " + msg.body();
+                                        logger.debug(message);
+                                        msg.reply(message);
                                     }
-                                    logger.fatal("HERE");
+                                    logger.fatal("Error persisting: " + msg.body());
                                 }));
     }
 }
