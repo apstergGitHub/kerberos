@@ -1,4 +1,5 @@
 #!/bin/bash
 
-docker network create hope_network
-docker run --name kerberos-mongo --network=hope_network -d mongo
+docker network create kerb
+docker build -f docker/Dockerfile --tag=kerberos .
+docker run -it -p 4000:80 --name kerberos kerberos
